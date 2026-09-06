@@ -45,7 +45,7 @@ Bronze ──► Silver ──► Gold (parquet; storage via fsspec: file:// ↔
             Dashboards web e Power BI
 ```
 
-Os notebooks acompanham a esteira como referência de método: auditoria de qualidade do bronze (o que a silver precisa tratar), demonstração e teste do modelo multidimensional (as perguntas do executivo respondidas pelo star schema).
+Os notebooks acompanham a esteira como referência de método: auditoria de qualidade do bronze (o que a silver precisa tratar), avaliação do modelo multidimensional e testes de indicadores (cada número do warehouse recalculado na origem, diferença zero).
 
 ## Status do projeto
 
@@ -57,13 +57,13 @@ Os notebooks acompanham a esteira como referência de método: auditoria de qual
 | Régua de validação dos dados sintéticos (46 checks) | concluído |
 | Gerador de dados sintéticos (2021 a 04/09/2026, ~1,05M linhas em ~40s, aprovado 46/46) | concluído |
 | Carga incremental origem → staging por marca d'água (`rowversion`), com avanço do relógio | concluído |
-| Bronze (staging → parquet via fsspec) | a iniciar |
-| Auditoria de qualidade (notebooks) + catálogo de regras da silver | a iniciar |
-| Silver (regras aprovadas + prestação de contas) | a iniciar |
-| Matriz de barramento + Gold (star schema particionado por ano) | a iniciar |
-| Warehouse multidimensional SQL Server + carga por partição | a iniciar |
-| Notebook de testes do modelo multidimensional | a iniciar |
-| Carga no destino em nuvem | a iniciar |
+| Bronze (staging → parquet por carga, esquema explícito, linhagem; 1,05M linhas em 7,5 s) | concluído |
+| Auditoria de qualidade (2 notebooks executados, 16 achados) + catálogo de regras da silver | concluído |
+| Silver (14 regras + prestação de contas auto-reprovável, 10/10) | concluído |
+| Matriz de barramento + Gold (15 dimensões, 7 fatos particionadas por ano, régua 43/43) | concluído |
+| Warehouse multidimensional SQL Server (columnstore) + carga por partição com prestação de contas | concluído |
+| Notebooks de avaliação do modelo e de testes de indicadores (warehouse × origem) | concluído |
+| Carga no destino em nuvem | próxima versão |
 | Dashboards | outro projeto |
 
 ## Requisitos
@@ -76,7 +76,7 @@ Os notebooks acompanham a esteira como referência de método: auditoria de qual
 
 ## Como rodar (estado atual)
 
-As etapas até `carga-staging` estão publicadas e reproduzíveis; as seguintes são o alvo do projeto e entram no quickstart conforme são concluídas.
+Todas as etapas abaixo estão publicadas e reproduzíveis; `uv run pipeline --completo` encadeia tudo.
 
 ```bash
 cd ~                        # SEMPRE no filesystem do Linux; /mnt/c degrada muito a performance
@@ -88,12 +88,14 @@ uv sync
 uv run gerador-origem       # popula o sistema comercial simulado, 2021 a 04/09/2026 (determinístico)
 uv run regua-origem         # valida: o contrato de aceite dos dados sintéticos
 uv run carga-staging        # carga incremental: origem → staging por marca d'água (rowversion)
-uv run bronze-staging       # lake: staging → parquet com verificação de contagens
-uv run silver-staging       # regras do catálogo + prestação de contas
-uv run gold-staging         # star schema: dimensões + fatos particionadas por ano
-uv run regua-gold           # valida a gold contra a silver e contra a história
+uv run bronze-staging       # lake: staging → parquet por carga, com verificação de contagens
+uv run notebooks-qualidade  # auditoria do bronze: 2 notebooks executados, 16 achados
+uv run silver-staging       # regras do catálogo + prestação de contas (reprova a si mesma)
+uv run gold-staging         # star schema: 15 dimensões + 7 fatos particionadas por ano
+uv run regua-gold           # valida a gold contra a silver e contra a história (43 checks)
 uv run carga-dw             # gold → warehouse SQL Server (porta 1434), partição a partição
-uv run carga-dw --env .env.nuvem   # opcional: o mesmo, para um destino em nuvem
+uv run notebooks-modelo     # avaliação do modelo + testes de indicadores warehouse × origem
+uv run pipeline             # o ciclo diário: staging → bronze → silver → gold → régua → warehouse
 ```
 
 ## Estrutura de diretórios
@@ -105,13 +107,21 @@ interiores-fictoria-bigdata/
 ├── .env.example         # configuração 12-factor (copie para .env; o .env não é versionado)
 ├── pyproject.toml       # pacote Python + esteira de qualidade (ruff, mypy, pytest)
 ├── docs/                # documentação do projeto (negócio, dados, manuais)
-├── notebooks/           # auditoria de qualidade e testes do multidimensional (quando existirem)
+├── notebooks/           # 01-02 auditoria do bronze · 03 avaliação do modelo · 04 testes de indicadores
 ├── src/interiores_fictoria/
 │   ├── config.py        # configuração 12-factor (conexões e lake vêm do ambiente)
 │   ├── db.py            # sincronização por MERGE (só o que mudou é gravado)
 │   ├── gerador/         # universo planejado por semente fixa e materializado "como de T"
 │   ├── staging/         # carga incremental origem → staging por rowversion
-│   └── validacao/       # régua: bandas versionadas + verificador
+│   ├── lake.py, duck.py # storage plugável (fsspec) e views DuckDB do bronze/silver/gold
+│   ├── bronze/          # staging → parquet por carga (esquema explícito, linhagem)
+│   ├── qualidade/       # catálogo de achados (as consultas que os notebooks evidenciam)
+│   ├── silver/          # regras do catálogo + prestação de contas
+│   ├── gold/            # modelo (SQL das dimensões e fatos) + construtor particionado por ano
+│   ├── warehouse/       # carga no SQL Server (columnstore) por partição
+│   ├── notebooks/       # construtores que geram e executam os 4 notebooks
+│   ├── validacao/       # réguas da origem (46 checks) e da gold (43 checks)
+│   └── pipeline.py      # orquestração: o ciclo diário num comando
 ├── tests/               # testes da esteira de qualidade
 └── staging/
     ├── docker-compose.yml   # SQL Server (origem simulada + staging) e SQL Server do warehouse
@@ -132,7 +142,29 @@ interiores-fictoria-bigdata/
 - [05 · Guia de Reprodução](docs/05_guia_reproducao.md): o manual completo do clone ao staging validado, com números de referência, healthchecks e troubleshooting.
 - [06 · Carga Incremental](docs/06_carga_incremental.md): como o staging espelha a origem lendo só o que mudou (marca d'água `rowversion`), o relógio do universo e a prova de que a produção não é varrida.
 
-Os próximos documentos nascem com as etapas: camadas bronze, silver e gold, matriz de barramento, warehouse multidimensional e warehouse na nuvem.
+**Camadas do lake**
+
+- [07 · Camada Bronze](docs/07_camada_bronze.md): o staging congelado em parquet, uma pasta por carga, esquema explícito, linhagem e conferência de contagens.
+- [08 · Catálogo de Achados](docs/08_catalogo_achados_silver.md): os 16 achados da auditoria de qualidade e a regra de tratamento de cada um, o contrato da silver.
+- [09 · Camada Silver](docs/09_camada_silver.md): o bronze conformado pelas regras, com a prestação de contas que reprova a si mesma.
+- [10 · Matriz de Barramento](docs/10_matriz_barramento.md): dos indicadores da diretoria ao star schema: grãos, fatos, dimensões conformadas, régua de SLA e os ritos executivos no calendário.
+- [11 · Camada Gold](docs/11_camada_gold.md): o star schema construído (15 dimensões, 7 fatos particionadas por ano) e a régua que o prova.
+- [12 · Warehouse Multidimensional](docs/12_warehouse_multidimensional.md): a gold servida em SQL Server com columnstore, carregada por partição com prestação de contas.
+
+</details>
+
+<details>
+<summary><strong>Notebooks</strong> (executados, com as evidências e os gráficos)</summary>
+
+**Auditoria de qualidade do bronze** (a referência da silver)
+
+- [01 · Cadastro e funil comercial](notebooks/01_qualidade_cadastro_funil.ipynb)
+- [02 · Financeiro e obra](notebooks/02_qualidade_financeiro_obra.ipynb)
+
+**Modelo multidimensional**
+
+- [03 · Avaliação do modelo](notebooks/03_avaliacao_modelo_multidimensional.ipynb): inventário do warehouse, cardinalidades, grão, integridade referencial, posição do funil, régua de SLA.
+- [04 · Testes de indicadores](notebooks/04_testes_indicadores.ipynb): cada indicador da diretoria calculado no warehouse e recalculado na origem, diferença zero; os ritos executivos e as leituras de premiação.
 
 </details>
 

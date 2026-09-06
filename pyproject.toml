@@ -31,10 +31,13 @@ gerador-origem = "interiores_fictoria.gerador.principal:main"
 regua-origem = "interiores_fictoria.validacao.regua:main"
 carga-staging = "interiores_fictoria.staging.carga_incremental:main"
 bronze-staging = "interiores_fictoria.bronze.extrator:main"
+notebooks-qualidade = "interiores_fictoria.notebooks.construtor:main"
 silver-staging = "interiores_fictoria.silver.transformador:main"
 gold-staging = "interiores_fictoria.gold.construtor:main"
 regua-gold = "interiores_fictoria.validacao.regua_gold:main"
 carga-dw = "interiores_fictoria.warehouse.carga:main"
+notebooks-modelo = "interiores_fictoria.notebooks.modelo:main"
+pipeline = "interiores_fictoria.pipeline:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -58,8 +61,14 @@ mypy_path = "src"
 
 [[tool.mypy.overrides]]
 # bibliotecas sem stubs publicados (py.typed ausente); o resto do projeto segue strict
-module = ["fsspec.*", "pyarrow.*", "pyodbc.*"]
+module = ["fsspec.*", "pyarrow.*", "pyodbc.*", "duckdb.*", "nbformat.*", "nbclient.*", "matplotlib.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# nbformat/nbclient não publicam tipos: o módulo de notebooks relaxa as chamadas não tipadas
+module = ["interiores_fictoria.notebooks.*"]
+disallow_untyped_calls = false
+warn_return_any = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
