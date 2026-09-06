@@ -1,0 +1,79 @@
+# Sistema comercial simulado + staging da Fictoria: um SQL Server 2022 (edição Developer,
+# gratuita para estudo) com dois bancos, ORIGEM_DB (a "produção", populada pelo gerador) e
+# STAGING_DB (o espelho por carga incremental). O DDL é aplicado nos dois pelo serviço
+# "sqlserver-init" no primeiro boot (a imagem do SQL Server não executa scripts de
+# inicialização sozinha, ao contrário do Postgres).
+# Uso: copie ../.env.example para ../.env, ajuste as senhas, e rode
+#   docker compose --env-file ../.env up -d
+name: fictoria-staging
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: fictoria_sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?defina MSSQL_SA_PASSWORD no .env}
+      MSSQL_COLLATION: Latin1_General_100_CI_AI_SC_UTF8
+    ports:
+      - "${MSSQL_PORT:-1433}:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -b -Q \"SELECT 1\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  # Aplica o DDL (00..04) nos dois bancos, depois que o servidor responde. Idempotente: os
+  # scripts checam a existência de banco, schemas e tabelas antes de criar.
+  sqlserver-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: fictoria_sqlserver_init
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?defina MSSQL_SA_PASSWORD no .env}
+      ORIGEM_DB: ${ORIGEM_DB:-db_fictoria}
+      STAGING_DB: ${STAGING_DB:-stg_fictoria}
+    volumes:
+      - ./ddl:/ddl:ro
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -e
+        for banco in "$$ORIGEM_DB" "$$STAGING_DB"; do
+          for f in /ddl/*.sql; do
+            echo ">> $$banco: aplicando $$f"
+            /opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P "$$MSSQL_SA_PASSWORD" -C -b -v BANCO="$$banco" -i "$$f"
+          done
+        done
+        echo ">> DDL aplicado em $$ORIGEM_DB e $$STAGING_DB"
+
+  # Warehouse multidimensional: o star schema da gold servido em SQL Server, para dashboards
+  # e Power BI. Nasce vazio; `uv run carga-dw` cria o banco e popula por partição.
+  warehouse:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: fictoria_warehouse
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${DW_SA_PASSWORD:?defina DW_SA_PASSWORD no .env}
+      MSSQL_COLLATION: Latin1_General_100_CI_AI_SC_UTF8
+    ports:
+      - "${DW_PORT:-1434}:1433"
+    volumes:
+      - warehouse_data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -b -Q \"SELECT 1\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+volumes:
+  sqlserver_data:
+  warehouse_data:
