@@ -3,7 +3,7 @@
 # Modelo de Dados do Staging: referência técnica
 
 <!-- nav:start -->
-[Home](../README.md) | [← Entendimento dos Dados](02_entendimento_dados.md)
+[Home](../README.md) | [← Entendimento dos Dados](02_entendimento_dados.md) | [Régua de Validação →](04_regua_validacao.md)
 <!-- nav:end -->
 
 > Referência técnica do banco `db_fictoria` (SQL Server): o diagrama do modelo e o objetivo de cada uma das 30 tabelas, schema a schema. A fonte da verdade estrutural é o DDL T-SQL comentado em [`staging/ddl/`](../staging/ddl/); este documento é o mapa de leitura. Para o conceito de negócio por trás de cada domínio, leia antes o [Entendimento dos Dados](02_entendimento_dados.md).
@@ -115,7 +115,7 @@ erDiagram
 
 ## 7. O staging (`stg_fictoria`)
 
-O staging tem as mesmas 30 tabelas, criadas pelo mesmo DDL, mais duas colunas de controle em cada uma: `_carregado_em datetime2(0)` (quando a linha entrou no staging) e `_origem varchar(40)` (de qual banco e carga veio). A tabela `controle.marca_dagua` guarda, por tabela, o último `rv` carregado; a carga diária lê `WHERE rv > @marca`, faz `MERGE` por chave primária e avança a marca. O DDL do schema `controle` e o carregador nascem com a etapa de carga incremental.
+O staging tem as mesmas 30 tabelas, criadas pelo mesmo DDL, mais três colunas de controle em cada uma, criadas pelo carregador na primeira execução: `_carregado_em datetime2(0)` (quando a linha entrou ou foi atualizada no staging), `_origem varchar(40)` (de qual banco veio) e `_rv_origem bigint` (o `rowversion` da origem convertido para inteiro, a própria marca d'água). O schema `controle` guarda `marca_dagua` (por tabela, o último `rv` carregado) e `carga` (o registro de cada execução, com contagens e tempos). A carga lê `WHERE rv > @marca`, faz `MERGE` por chave primária e avança a marca; a mecânica completa está na [Carga Incremental](06_carga_incremental.md).
 
 ---
 

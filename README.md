@@ -54,9 +54,9 @@ Os notebooks acompanham a esteira como referência de método: auditoria de qual
 | Entendimento do negócio e dos dados | concluído |
 | Modelo relacional + DDL T-SQL (staging) | concluído |
 | SQL Server no Docker (origem simulada + staging) com o DDL aplicado | concluído |
-| Régua de validação dos dados sintéticos | a iniciar |
-| Gerador de dados sintéticos (2021 a 04/09/2026) | a iniciar |
-| Carga incremental diária (staging) | a iniciar |
+| Régua de validação dos dados sintéticos (46 checks) | concluído |
+| Gerador de dados sintéticos (2021 a 04/09/2026, ~1,05M linhas em ~40s, aprovado 46/46) | concluído |
+| Carga incremental origem → staging por marca d'água (`rowversion`), com avanço do relógio | concluído |
 | Bronze (staging → parquet via fsspec) | a iniciar |
 | Auditoria de qualidade (notebooks) + catálogo de regras da silver | a iniciar |
 | Silver (regras aprovadas + prestação de contas) | a iniciar |
@@ -76,7 +76,7 @@ Os notebooks acompanham a esteira como referência de método: auditoria de qual
 
 ## Como rodar (estado atual)
 
-O staging ainda não está publicado; o quickstart abaixo é o alvo do projeto e é atualizado a cada etapa concluída.
+As etapas até `carga-staging` estão publicadas e reproduzíveis; as seguintes são o alvo do projeto e entram no quickstart conforme são concluídas.
 
 ```bash
 cd ~                        # SEMPRE no filesystem do Linux; /mnt/c degrada muito a performance
@@ -85,9 +85,9 @@ cd interiores-fictoria-bigdata
 cp .env.example .env        # edite as senhas (o SQL Server exige senha forte)
 cd staging && docker compose --env-file ../.env up -d && cd ..
 uv sync
-uv run gerador-staging      # popula o sistema comercial simulado, 2021 a 04/09/2026 (determinístico)
-uv run regua-staging        # valida: o contrato de aceite dos dados sintéticos
-uv run carga-staging        # carga incremental: origem → staging por marca d'água
+uv run gerador-origem       # popula o sistema comercial simulado, 2021 a 04/09/2026 (determinístico)
+uv run regua-origem         # valida: o contrato de aceite dos dados sintéticos
+uv run carga-staging        # carga incremental: origem → staging por marca d'água (rowversion)
 uv run bronze-staging       # lake: staging → parquet com verificação de contagens
 uv run silver-staging       # regras do catálogo + prestação de contas
 uv run gold-staging         # star schema: dimensões + fatos particionadas por ano
@@ -107,7 +107,11 @@ interiores-fictoria-bigdata/
 ├── docs/                # documentação do projeto (negócio, dados, manuais)
 ├── notebooks/           # auditoria de qualidade e testes do multidimensional (quando existirem)
 ├── src/interiores_fictoria/
-│   └── config.py        # configuração 12-factor (conexões e lake vêm do ambiente)
+│   ├── config.py        # configuração 12-factor (conexões e lake vêm do ambiente)
+│   ├── db.py            # sincronização por MERGE (só o que mudou é gravado)
+│   ├── gerador/         # universo planejado por semente fixa e materializado "como de T"
+│   ├── staging/         # carga incremental origem → staging por rowversion
+│   └── validacao/       # régua: bandas versionadas + verificador
 ├── tests/               # testes da esteira de qualidade
 └── staging/
     ├── docker-compose.yml   # SQL Server (origem simulada + staging) e SQL Server do warehouse
@@ -124,8 +128,11 @@ interiores-fictoria-bigdata/
 - [01 · Entendimento do Negócio](docs/01_entendimento_negocio.md): quem é a Fictoria, como vende, as dores, os indicadores e o SLA de conversão que o pipeline precisa entregar.
 - [02 · Entendimento dos Dados](docs/02_entendimento_dados.md): os 4 schemas e o papel de cada grupo de tabelas, em linguagem de negócio.
 - [03 · Modelo de Dados do Staging](docs/03_modelo_dados_staging.md): a referência técnica, com o diagrama e o objetivo de cada uma das 30 tabelas.
+- [04 · Régua de Validação](docs/04_regua_validacao.md): o contrato de aceite dos dados sintéticos (46 checks) e como rodá-lo.
+- [05 · Guia de Reprodução](docs/05_guia_reproducao.md): o manual completo do clone ao staging validado, com números de referência, healthchecks e troubleshooting.
+- [06 · Carga Incremental](docs/06_carga_incremental.md): como o staging espelha a origem lendo só o que mudou (marca d'água `rowversion`), o relógio do universo e a prova de que a produção não é varrida.
 
-Os próximos documentos nascem com as etapas: régua de validação, guia de reprodução, camadas bronze, silver e gold, matriz de barramento, warehouse multidimensional e warehouse na nuvem.
+Os próximos documentos nascem com as etapas: camadas bronze, silver e gold, matriz de barramento, warehouse multidimensional e warehouse na nuvem.
 
 </details>
 

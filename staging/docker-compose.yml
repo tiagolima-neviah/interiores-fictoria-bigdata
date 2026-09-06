@@ -11,6 +11,7 @@ services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: fictoria_sqlserver
+    restart: unless-stopped
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_PID: Developer
@@ -58,6 +59,7 @@ services:
   warehouse:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: fictoria_warehouse
+    restart: unless-stopped
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_PID: Developer
