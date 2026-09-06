@@ -27,9 +27,9 @@ dev = [
 
 [project.scripts]
 # Cada etapa do pipeline é um comando; os módulos nascem com as etapas (ver README, status).
-regua-staging = "interiores_fictoria.validacao.regua:main"
+gerador-origem = "interiores_fictoria.gerador.principal:main"
+regua-origem = "interiores_fictoria.validacao.regua:main"
 carga-staging = "interiores_fictoria.staging.carga_incremental:main"
-gerador-staging = "interiores_fictoria.gerador.principal:main"
 bronze-staging = "interiores_fictoria.bronze.extrator:main"
 silver-staging = "interiores_fictoria.silver.transformador:main"
 gold-staging = "interiores_fictoria.gold.construtor:main"
