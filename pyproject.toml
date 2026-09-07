@@ -49,6 +49,8 @@ packages = ["src/interiores_fictoria"]
 [tool.ruff]
 line-length = 100
 src = ["src", "tests"]
+# notebooks são gerados e executados por código (nbclient); não passam pelo lint
+extend-exclude = ["notebooks", "data"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM"]
