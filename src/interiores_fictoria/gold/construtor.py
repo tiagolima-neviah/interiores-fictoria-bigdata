@@ -17,12 +17,17 @@ from interiores_fictoria.gold import modelo
 from interiores_fictoria.lake import Lake, novo_manifesto
 
 
+def _contar(con: duckdb.DuckDBPyConnection, destino: str) -> int:
+    linha = con.execute(f"SELECT COUNT(*) FROM read_parquet('{destino}')").fetchone()
+    return int(linha[0]) if linha else 0
+
+
 def _gravar_dim(con: duckdb.DuckDBPyConnection, lake: Lake, nome: str, sql: str) -> int:
     lake.apagar("gold", nome)
     lake.fs.makedirs(lake.caminho("gold", nome), exist_ok=True)
     destino = lake.caminho("gold", nome, "parte-000.parquet")
     con.execute(f"COPY ({sql}) TO '{destino}' (FORMAT PARQUET, COMPRESSION ZSTD)")
-    return int(con.execute(f"SELECT COUNT(*) FROM read_parquet('{destino}')").fetchone()[0])  # type: ignore[index]
+    return _contar(con, destino)
 
 
 def _gravar_fato(con: duckdb.DuckDBPyConnection, lake: Lake, nome: str, sql: str) -> dict[int, int]:
@@ -41,9 +46,7 @@ def _gravar_fato(con: duckdb.DuckDBPyConnection, lake: Lake, nome: str, sql: str
             f"COPY (SELECT * EXCLUDE (ano) FROM _fato WHERE ano = {ano}) TO '{destino}' "
             "(FORMAT PARQUET, COMPRESSION ZSTD)"
         )
-        por_ano[ano] = int(
-            con.execute(f"SELECT COUNT(*) FROM read_parquet('{destino}')").fetchone()[0]
-        )  # type: ignore[index]
+        por_ano[ano] = _contar(con, destino)
     con.execute("DROP TABLE _fato")
     return por_ano
 

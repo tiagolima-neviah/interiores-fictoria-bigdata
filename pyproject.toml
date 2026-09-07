@@ -55,6 +55,14 @@ extend-exclude = ["notebooks", "data"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM"]
 
+[tool.ruff.lint.per-file-ignores]
+# módulos cujo conteúdo é SQL em strings: a legibilidade do SQL vale mais que a coluna 100
+"src/interiores_fictoria/gold/modelo.py" = ["E501"]
+"src/interiores_fictoria/qualidade/achados.py" = ["E501"]
+"src/interiores_fictoria/silver/transformador.py" = ["E501"]
+"src/interiores_fictoria/validacao/regua_gold.py" = ["E501"]
+"src/interiores_fictoria/notebooks/modelo.py" = ["E501"]
+
 [tool.mypy]
 python_version = "3.12"
 strict = true
