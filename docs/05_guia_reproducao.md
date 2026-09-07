@@ -135,6 +135,7 @@ Pelo `sqlcmd` (substitua a senha pela do seu `.env`):
 | régua reprova depois de mudar `gerador/parametros.py` | o universo mudou e o MERGE tentou casar dois universos diferentes; rode `uv run gerador-origem --recriar` |
 | régua do staging "sem dados" | o staging ainda não foi carregado; `uv run carga-staging` |
 | `Failed to hardlink files` no `uv sync` | projeto em `/mnt/c`; mova para `~/projetos` |
+| SSMS/DBeaver no **Windows** dá timeout em `localhost,1433` (erro 258), mas a porta responde | `localhost` resolve para IPv6 (`::1`) e o relay do WSL2 não completa o handshake do SQL Server por esse caminho; use **`127.0.0.1,1433`** (origem e staging) e **`127.0.0.1,1434`** (warehouse), login `sa`, senha do `.env`, com "Trust server certificate" marcado |
 
 ---
 
