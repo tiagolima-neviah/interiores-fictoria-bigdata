@@ -3,7 +3,7 @@
 # Carga Incremental: o staging que não pesa na produção
 
 <!-- nav:start -->
-[Home](../README.md) | [← Guia de Reprodução](05_guia_reproducao.md)
+[Home](../README.md) | [← Guia de Reprodução](05_guia_reproducao.md) | [Camada Bronze →](07_camada_bronze.md)
 <!-- nav:end -->
 
 > A dor número três da Fictoria era um BI que lia direto do banco de produção e travava o sistema de vendas a cada atualização. Este capítulo mostra a solução: um staging que espelha o sistema comercial lendo, a cada carga, **só as linhas que mudaram**, com a prova em números. Mostra também como o universo sintético "continua trabalhando" para a demonstração fazer sentido.
