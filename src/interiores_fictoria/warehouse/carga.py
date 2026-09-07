@@ -106,7 +106,8 @@ def preparar_banco(conexao: str) -> None:
     try:
         db.executar(
             master,
-            f"IF DB_ID(N'{nome}') IS NULL CREATE DATABASE [{nome}] COLLATE Latin1_General_100_CI_AI_SC_UTF8",
+            f"IF DB_ID(N'{nome}') IS NULL CREATE DATABASE [{nome}] "
+            "COLLATE Latin1_General_100_CI_AI_SC_UTF8",
         )
     finally:
         master.close()
@@ -128,11 +129,13 @@ def carregar_dimensao(conn: pyodbc.Connection, lake: Lake, nome: str) -> int:
     if chave.startswith("sk_") and len(pc.unique(tabela.column(chave))) == tabela.num_rows:
         db.executar(
             conn,
-            f"ALTER TABLE {SCHEMA}.{nome} ALTER COLUMN [{chave}] {_tipo_sql(tabela.schema.field(chave), tabela)} NOT NULL",
+            f"ALTER TABLE {SCHEMA}.{nome} ALTER COLUMN [{chave}] "
+            f"{_tipo_sql(tabela.schema.field(chave), tabela)} NOT NULL",
         )
         db.executar(
             conn,
-            f"ALTER TABLE {SCHEMA}.{nome} ADD CONSTRAINT pk_{nome} PRIMARY KEY CLUSTERED ([{chave}])",
+            f"ALTER TABLE {SCHEMA}.{nome} ADD CONSTRAINT pk_{nome} "
+            f"PRIMARY KEY CLUSTERED ([{chave}])",
         )
     conn.commit()
     return _inserir(conn, nome, tabela)
@@ -184,9 +187,8 @@ def main() -> None:
     conn = db.conectar(conexao)
     falhas: list[str] = []
     try:
-        print(
-            f"Warehouse: gold → SQL Server ({'todos os anos' if not anos else 'anos ' + ', '.join(map(str, anos))})\n"
-        )
+        escopo = "todos os anos" if not anos else "anos " + ", ".join(map(str, anos))
+        print(f"Warehouse: gold → SQL Server ({escopo})\n")
         print(f"  {'dimensão':24} {'linhas':>9} {'tempo':>7}")
         for nome in modelo.DIMENSOES:
             t0 = time.perf_counter()
@@ -202,15 +204,17 @@ def main() -> None:
                 ok = d["parquet"] == d["tabela"]
                 if not ok:
                     falhas.append(f"{nome} {ano}")
-                print(
-                    f"  {nome:24} {ano:>5} {d['parquet']:>9} {d['tabela']:>9} {'' if ok else '  DIVERGE'}"
-                )
+                aviso = "" if ok else "  DIVERGE"
+                print(f"  {nome:24} {ano:>5} {d['parquet']:>9} {d['tabela']:>9}{aviso}")
             print(f"  {'':24} {'':>5} {'':>9} {'':>9} {time.perf_counter() - t0:>6.1f}s")
         tamanho = db.escalar(
             conn,
-            "SELECT CAST(SUM(a.total_pages) * 8.0 / 1024 AS decimal(10,1)) FROM sys.allocation_units a "
-            "JOIN sys.partitions p ON p.hobt_id = a.container_id OR p.partition_id = a.container_id "
-            "JOIN sys.objects o ON o.object_id = p.object_id WHERE o.schema_id = SCHEMA_ID('dw')",
+            "SELECT CAST(SUM(a.total_pages) * 8.0 / 1024 AS decimal(10,1)) "
+            "FROM sys.allocation_units a "
+            "JOIN sys.partitions p "
+            "ON p.hobt_id = a.container_id OR p.partition_id = a.container_id "
+            "JOIN sys.objects o ON o.object_id = p.object_id "
+            "WHERE o.schema_id = SCHEMA_ID('dw')",
         )
     finally:
         conn.close()
@@ -222,9 +226,8 @@ def main() -> None:
     )
     if falhas:
         raise SystemExit("Prestação de contas FALHOU em: " + ", ".join(falhas))
-    print(
-        "Prestação de contas: todas as partições batem com o parquet. Próximo: uv run notebooks-modelo"
-    )
+    print("Prestação de contas: todas as partições batem com o parquet.")
+    print("Próximo: uv run notebooks-modelo")
 
 
 if __name__ == "__main__":

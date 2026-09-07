@@ -79,8 +79,9 @@ def main() -> None:
     )
     print(
         f"\nConcluído em {time.perf_counter() - inicio:.1f}s: {len(modelo.DIMENSOES)} dimensões e "
-        f"{len(modelo.FATOS)} fatos ({sum(resumo.values())} linhas de fato). Valide com: uv run regua-gold"
+        f"{len(modelo.FATOS)} fatos ({sum(resumo.values())} linhas de fato)."
     )
+    print("Valide com: uv run regua-gold")
 
 
 if __name__ == "__main__":
